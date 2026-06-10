@@ -1,4 +1,4 @@
-var CACHE = 'ut-report-v4';
+var CACHE = 'ut-report-v5';
 
 self.addEventListener('install', function(e){
   e.waitUntil(

@@ -21729,87 +21729,65 @@ async function buildWordBlob(d) {
 
 </script>
 <script>
+window.addEventListener('DOMContentLoaded', function() {
 
-// ---- SCREEN WAKE LOCK (keeps screen on while app open) ----
-var wakeLock = null;
-async function requestWakeLock() {
-  try {
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      console.log('Wake lock active');
-      wakeLock.addEventListener('release', function() {
-        console.log('Wake lock released');
-      });
-    }
-  } catch(e) { console.log('Wake lock not available:', e.message); }
-}
-// Re-acquire wake lock when page becomes visible again
-document.addEventListener('visibilitychange', function() {
-  if (document.visibilityState === 'visible') requestWakeLock();
-});
-requestWakeLock();
-
-// ---- UNSAVED / UNEXPORTED WARNING ----
-var reportExported = false;
-var reportHasContent = false;
-
-function markExported() {
-  reportExported = true;
-  reportHasContent = false;
-}
-
-function checkHasContent() {
-  var fields = ['job_num','customer','location','exam_results','job_scope'];
-  return fields.some(function(id) {
-    var el = document.getElementById(id);
-    return el && el.value && el.value.trim().length > 0;
+  // WAKE LOCK - keeps screen on
+  function reqWL() {
+    try {
+      if ('wakeLock' in navigator) {
+        navigator.wakeLock.request('screen').catch(function(){});
+      }
+    } catch(e) {}
+  }
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') reqWL();
   });
-}
+  reqWL();
 
-// Watch for any input to flag report has content
-document.addEventListener('input', function(e) {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-    reportHasContent = checkHasContent();
-    if (reportHasContent) reportExported = false;
-  }
-}, true);
+  // EXPORT REMINDER
+  var exported = false;
 
-// Warn before closing/navigating away
-window.addEventListener('beforeunload', function(e) {
-  if (reportHasContent && !reportExported) {
-    var msg = 'You have an unsaved report. Export & Email before leaving?';
-    e.returnValue = msg;
-    return msg;
+  function hasContent() {
+    return ['job_num','customer','location','exam_results','job_scope'].some(function(id) {
+      var el = document.getElementById(id);
+      return el && el.value && el.value.trim().length > 0;
+    });
   }
+
+  function refreshBanner() {
+    var b = document.getElementById('export-reminder');
+    if (b) b.style.display = (hasContent() && !exported) ? 'flex' : 'none';
+  }
+  setInterval(refreshBanner, 2000);
+
+  document.addEventListener('input', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      exported = false; refreshBanner();
+    }
+  }, true);
+
+  window.addEventListener('beforeunload', function(e) {
+    if (hasContent() && !exported) e.returnValue = 'Report not yet exported. Leave anyway?';
+  });
+
+  window.addEventListener('pagehide', function() {
+    if (hasContent() && !exported) { try { saveAll(); } catch(e) {} }
+  });
+
+  // Wrap exportAndEmail to mark done
+  var _orig = window.exportAndEmail;
+  if (_orig) {
+    window.exportAndEmail = async function() {
+      await _orig.apply(this, arguments);
+      exported = true; refreshBanner();
+    };
+  }
+
+  // Wire up reminder banner button
+  var remBtn = document.querySelector('#export-reminder button');
+  if (remBtn) remBtn.onclick = function() { window.exportAndEmail && window.exportAndEmail(); };
+
 });
-
-// On iOS Safari beforeunload doesn't always fire — use pagehide instead
-window.addEventListener('pagehide', function() {
-  if (reportHasContent && !reportExported) {
-    // Save to storage as emergency backup
-    try { saveAll(); } catch(e) {}
-  }
-});
-
-// Override exportAndEmail to mark as exported when done
-var _origExportAndEmail = exportAndEmail;
-async function exportAndEmail() {
-  await _origExportAndEmail();
-  markExported();
-}
-
-// Show persistent export reminder banner when content exists but not yet exported
-function updateExportReminder() {
-  var banner = document.getElementById('export-reminder');
-  if (!banner) return;
-  if (reportHasContent && !reportExported) {
-    banner.style.display = 'flex';
-  } else {
-    banner.style.display = 'none';
-  }
-}
-setInterval(updateExportReminder, 3000);
-
 </script>
 <script>
 if('serviceWorker' in navigator){
