@@ -1,9 +1,10 @@
-var CACHE = 'ut-report-v1';
-var FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+var CACHE = 'ut-report-v4';
 
 self.addEventListener('install', function(e){
   e.waitUntil(
-    caches.open(CACHE).then(function(cache){ return cache.addAll(FILES); })
+    caches.open(CACHE).then(function(cache){
+      return cache.addAll(['./manifest.json','./icon-192.png','./icon-512.png']);
+    })
   );
   self.skipWaiting();
 });
@@ -20,7 +21,7 @@ self.addEventListener('activate', function(e){
 self.addEventListener('fetch', function(e){
   e.respondWith(
     fetch(e.request).then(function(response){
-      if(!response || response.status !== 200) return caches.match(e.request);
+      if(!response || response.status !== 200) return caches.match(e.request) || response;
       var clone = response.clone();
       caches.open(CACHE).then(function(cache){ cache.put(e.request, clone); });
       return response;
