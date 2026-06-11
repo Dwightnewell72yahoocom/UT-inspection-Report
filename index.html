@@ -903,10 +903,10 @@ function buildPDF(d) {
   // ── RESULTS + PHOTO ──
   checkPage(35);
   secHeader('Examination Results');
-  var resW = d.photo ? pw * 0.62 : pw;
-  var photoW = pw * 0.36;
+  var resW = d.photo ? pw * 0.60 : pw;
+  var photoW = pw * 0.38;
   var resLines = doc.splitTextToSize(d.exam_results||'', resW-4);
-  var resH = Math.max(40, resLines.length * 4 + 6);
+  var resH = Math.max(55, resLines.length * 4 + 6);
   if (d.drawing_ref) resH += 5;
 
   // Results box
@@ -938,7 +938,9 @@ function buildPDF(d) {
     try {
       var imgType = d.photo.indexOf('data:image/png') > -1 ? 'PNG' : 'JPEG';
       // Use compression level 'FAST' for better compatibility
-      doc.addImage(d.photo, imgType, px+1, y+5, photoW-2, resH-8, undefined, 'FAST');
+      // Calculate proportional height
+      var imgH = resH - 10;
+      doc.addImage(d.photo, imgType, px+1, y+4, photoW-2, imgH, undefined, 'FAST');
     } catch(e) {
       console.error('Photo embed error:', e);
       doc.setFontSize(7); doc.setFont('helvetica','normal');
@@ -1230,10 +1232,15 @@ async function exportAndEmail(){
   toast('Building files...');
   var d=collect();
   Object.keys(d).forEach(function(k){if(k.indexOf('r_')===0)d[k.slice(2)]=d[k];});
+  // Remap signature fields
+  d.sig_tech1 = d.sig1;
+  d.sig_tech2 = d.sig2;
+  d.sig_client = d.sigc;
   var jobId=(d.job_num||'report').replace(/[^a-zA-Z0-9]/g,'-');
   var dt=d.insp_date||new Date().toISOString().split('T')[0];
   var fname='UT_Report_'+jobId+'_'+dt;
   var pdfBlob=null;
+  console.log('Photo in d:', d.photo ? 'YES ('+d.photo.length+' chars)' : 'NO');
   try{pdfBlob=buildPDF(d).output('blob');}catch(e){console.error('PDF:',e);}
   var wordBlob=null;
   try{wordBlob=await buildWordBlob(d);}catch(e){console.error('Word:',e);}
