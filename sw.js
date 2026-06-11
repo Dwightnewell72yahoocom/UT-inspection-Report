@@ -1,4 +1,4 @@
-var CACHE='ut-v5';
+var CACHE='ut-v6';
 self.addEventListener('install',function(e){self.skipWaiting();});
 self.addEventListener('activate',function(e){self.clients.claim();});
 self.addEventListener('fetch',function(e){e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request);}));});
