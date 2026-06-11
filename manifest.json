@@ -1,7 +1,7 @@
 {
-  "name": "UT Inspection Report",
+  "name": "DataCAT UT Report",
   "short_name": "UT Report",
-  "description": "Coast Mountain Integrity — Ultrasonic Inspection Report",
+  "description": "Sound Solutions — Ultrasonic Inspection Report",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a1f3d",
