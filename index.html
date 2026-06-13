@@ -723,259 +723,296 @@ function stampDateTime(){
 // ---- PDF BUILDER ----
 function buildPDF(d) {
   var jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
-  var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  var pw = 190; var m = 10; var y = m;
-  var navyMid=[31,56,100],fieldBg=[248,250,255],borderCol=[200,210,230],
-      textDark=[10,31,61],textMid=[80,100,140],lightGrey=[245,247,252];
+  var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  var pw = 277; // page width
+  var m = 10;   // margin
+  var y = m;
 
-  function checkPage(n){if(y+n>280){doc.addPage();y=m;}}
+  // Colors
+  var navy = [10, 31, 61];
+  var navyMid = [31, 56, 100];
+  var fieldBg = [248, 250, 255];
+  var fieldBorder = [208, 216, 240];
+  var sectionBg = [31, 56, 100];
+  var textDark = [10, 31, 61];
+  var textMid = [90, 110, 153];
+  var white = [255, 255, 255];
 
-  function lbl(label,val,x,w,cy){
-    doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-    doc.setLineWidth(0.2); doc.rect(x,cy,w,7);
-    doc.setFontSize(6); doc.setFont('helvetica','bold');
-    doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-    doc.text(label+':',x+1.5,cy+3);
-    doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-    doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-    doc.text(String(val||''),x+1.5,cy+6);
-  }
-
-  function secBar(text){
-    doc.setFillColor(navyMid[0],navyMid[1],navyMid[2]);
-    doc.rect(m,y,pw,5.5,'F');
+  // Helper: section header bar
+  function secHeader(text) {
+    doc.setFillColor(sectionBg[0],sectionBg[1],sectionBg[2]);
+    doc.roundedRect(m, y, pw, 6, 1, 1, 'F');
     doc.setTextColor(255,255,255);
     doc.setFontSize(7); doc.setFont('helvetica','bold');
-    doc.text(text.toUpperCase(),m+pw/2,y+3.8,{align:'center'});
-    doc.setTextColor(0,0,0); y+=5.5;
-  }
-
-  function colHdr(txt,x,w){
-    doc.setFillColor(lightGrey[0],lightGrey[1],lightGrey[2]);
-    doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-    doc.setLineWidth(0.2); doc.rect(x,y,w,5,'FD');
-    doc.setFontSize(6.5); doc.setFont('helvetica','bold');
-    doc.setTextColor(navyMid[0],navyMid[1],navyMid[2]);
-    doc.text(txt,x+w/2,y+3.5,{align:'center'});
+    doc.text(text.toUpperCase(), m+3, y+4);
     doc.setTextColor(0,0,0);
+    y += 8;
   }
 
-  function chk(checked,txt,x,cy){
-    doc.setFontSize(7); doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-    doc.text((checked?'☑':'☐')+' '+txt,x+1.5,cy);
-  }
-
-  function det(label,val,x,cy){
+  // Helper: field box
+  function field(lbl, val, x, w, h) {
+    h = h || 10;
+    doc.setFillColor(fieldBg[0],fieldBg[1],fieldBg[2]);
+    doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(x, y, w, h, 1, 1, 'FD');
     doc.setFontSize(6); doc.setFont('helvetica','bold');
     doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-    doc.text(label+':',x+1.5,cy);
-    doc.setFont('helvetica','normal');
+    doc.text(lbl.toUpperCase(), x+2, y+3.5);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal');
     doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-    doc.text(String(val||''),x+18,cy);
+    var valStr = String(val || '');
+    doc.text(valStr, x+2, y+8);
   }
 
-  // HEADER
-  doc.setFillColor(255,255,255);
-  doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-  doc.setLineWidth(0.3); doc.rect(m,y,44,18);
-  try{ doc.addImage('data:image/png;base64,'+LOGO_B64_CLEAN,'PNG',m+1,y+1,42,16); }
-  catch(e){ doc.setFontSize(7); doc.setFont('helvetica','bold');
-    doc.setTextColor(245,158,11); doc.text('SOUND SOLUTIONS',m+2,y+7); doc.text('DataCAT',m+2,y+13); }
-  doc.setFillColor(navyMid[0],navyMid[1],navyMid[2]);
-  doc.rect(m+45,y,pw-45,18,'F');
+  // Helper: row of fields
+  function fieldRow(fields, h) {
+    h = h || 10;
+    var totalW = pw;
+    var x = m;
+    fields.forEach(function(f) {
+      var w = f.w ? (pw * f.w) : (totalW / fields.length);
+      field(f.l, f.v, x, w-1, h);
+      x += w;
+    });
+    y += h + 2;
+  }
+
+  // Helper: text box (multiline)
+  function textBox(lbl, text, x, w, h) {
+    doc.setFillColor(fieldBg[0],fieldBg[1],fieldBg[2]);
+    doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(x, y, w, h, 1, 1, 'FD');
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.setTextColor(textMid[0],textMid[1],textMid[2]);
+    doc.text(lbl.toUpperCase(), x+2, y+3.5);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.setTextColor(textDark[0],textDark[1],textDark[2]);
+    var lines = doc.splitTextToSize(text || '', w-4);
+    doc.text(lines, x+2, y+8);
+    return h;
+  }
+
+  function checkPage(needed) {
+    if (y + needed > 195) {
+      doc.addPage('a4','landscape');
+      y = m;
+    }
+  }
+
+  // ── HEADER ──
+  doc.setFillColor(navy[0],navy[1],navy[2]);
+  doc.roundedRect(m, y, pw, 18, 2, 2, 'F');
+
+  // Logo
+  try {
+    // White rounded background for logo visibility on dark header
+    doc.setFillColor(255,255,255);
+    doc.roundedRect(m+1, y+1, 38, 16, 2, 2, 'F');
+    doc.addImage('data:image/png;base64,' + LOGO_B64_CLEAN, 'PNG', m+2, y+2, 36, 14);
+  } catch(e) {
+    doc.setTextColor(245,158,11);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('SOUND SOLUTIONS', m+3, y+7);
+    doc.text('DataCAT', m+3, y+12);
+  }
+
+  // Title
   doc.setTextColor(255,255,255);
-  doc.setFontSize(12); doc.setFont('helvetica','bold');
-  doc.text('ULTRASONIC INSPECTION REPORT',m+45+(pw-45)/2,y+8,{align:'center'});
-  doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-  doc.text('Sound Solutions — Procedure: '+(d.procedure||'UT-001')+' Rev '+(d.revision||'1.0'),m+45+(pw-45)/2,y+13.5,{align:'center'});
-  doc.setTextColor(0,0,0); y+=20;
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('ULTRASONIC INSPECTION REPORT', m+pw/2, y+8, {align:'center'});
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.setTextColor(168,187,218);
+  doc.text('Procedure: '+(d.procedure||'UT-001')+' Rev '+(d.revision||'1.0')+'   |   Code: '+(d.code||'CSA Z662-11 / ASME V'), m+pw/2, y+13, {align:'center'});
 
-  // PROJECT FIELDS
-  var bh=7;
-  lbl('SS JOB#',d.job_num,m,pw*0.35,y);
-  lbl('PAGE',(d.page_num||'1')+' OF '+(d.page_of||'1'),m+pw*0.35,pw*0.15,y);
-  lbl('DATE',d.insp_date,m+pw*0.50,pw*0.25,y);
-  lbl('TIME',(d.insp_time||'')+' '+(d.ampm||''),m+pw*0.75,pw*0.25,y); y+=bh;
-  lbl('CUSTOMER',d.customer,m,pw*0.5,y); lbl('LOCATION',d.location,m+pw*0.5,pw*0.5,y); y+=bh;
-  lbl('PROJECT',d.project,m,pw*0.5,y);
-  lbl('PROCEDURE',d.procedure||'UT-001',m+pw*0.5,pw*0.3,y);
-  lbl('REVISION',d.revision||'1.0',m+pw*0.8,pw*0.2,y); y+=bh;
-  lbl('P.O./A.F.E NO.',d.po_num,m,pw*0.5,y);
-  lbl('CODE',d.code||'CSA Z662-11 / ASME V',m+pw*0.5,pw*0.5,y); y+=bh;
-  lbl('CUSTOMER REPRESENTATIVE',d.cust_rep,m,pw*0.5,y);
-  lbl('PART(S) EXAMINED',d.parts,m+pw*0.5,pw*0.5,y); y+=bh;
-  if(d.weather_conditions){lbl('SITE WEATHER',d.weather_conditions,m,pw,y);y+=bh;}
-  y+=1;
+  // Meta right
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('SS Job #: '+(d.job_num||''), m+pw-2, y+5, {align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.text('Date: '+(d.insp_date||''), m+pw-2, y+9, {align:'right'});
+  doc.text('Time: '+(d.insp_time||'')+' '+(d.ampm||''), m+pw-2, y+13, {align:'right'});
+  doc.text('Page: '+(d.page_num||'1')+' of '+(d.page_of||'1'), m+pw-2, y+17, {align:'right'});
 
-  // EXAMINATION DETAILS
-  secBar('Examination Details');
-  var c4=pw/4;
-  colHdr('UT FLAW DETECTOR',m,c4);
-  colHdr('CABLES',m+c4,c4);
-  colHdr('CALIBRATION BLOCKS',m+c4*2,c4);
-  colHdr('SURFACE CONDITION',m+c4*3,c4);
-  y+=5;
-  var detH=26;
-  doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-  doc.setLineWidth(0.2);
-  [c4,c4,c4,c4].forEach(function(w,i){doc.rect(m+w*i,y,w,detH);});
-  det('Make',d.det_make,m,y+4);
-  det('Model',d.det_model||'EPOCH 600',m,y+9);
-  det('Serial',d.det_serial,m,y+14);
-  det('Cal Due',d.det_cal,m,y+20);
-  chk(d.cable_type==='BNC to BNC','BNC to BNC',m+c4,y+5);
-  chk(d.cable_type==='BNC to Microdot','BNC to Microdot',m+c4,y+10);
-  chk(d.cable_type==='BNC to Mini Microdot','BNC to Mini M-dot',m+c4,y+15);
-  chk(d.cable_type==='Other','Other',m+c4,y+20);
-  doc.setFontSize(6); doc.setFont('helvetica','bold');
-  doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-  doc.text('Length:',m+c4+1.5,y+25);
-  doc.setFont('helvetica','normal'); doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-  doc.text((d.cable_len||'')+' ft',m+c4+13,y+25);
-  det('Blk1',(d.block1_type||'')+' S/N:'+(d.block1_sn||''),m+c4*2,y+5);
-  chk(d.block1_units==='Metric','Metric',m+c4*2,y+10);
-  chk(d.block1_units==='Imperial','Imperial',m+c4*2+c4*0.45,y+10);
-  doc.setFontSize(6); doc.setFont('helvetica','bold');
-  doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-  doc.text('Blk2:',m+c4*2+1.5,y+16);
-  doc.setFont('helvetica','normal'); doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-  doc.text('CS Step S/N:'+(d.block2_sn||''),m+c4*2+10,y+16);
-  chk(d.block2_units==='Metric','Metric',m+c4*2,y+21);
-  chk(d.block2_units==='Imperial','Imperial',m+c4*2+c4*0.45,y+21);
-  chk(d.surface_cond==='Base Metal','Base Metal',m+c4*3,y+5);
-  chk(d.surface_cond==='Weld','Weld',m+c4*3,y+10);
-  chk(d.surface_cond==='Grit Blasted','Grit Blasted',m+c4*3,y+15);
-  chk(d.surface_cond==='Tight Scale','Tight Scale',m+c4*3,y+20);
-  chk(d.surface_cond==='Other','Other',m+c4*3,y+25);
-  y+=detH;
+  y += 21;
+  doc.setTextColor(0,0,0);
 
-  lbl('SCAN METHOD',d.scan_method,m,c4,y);
-  lbl('TRANSFER VALUE',(d.transfer_val||'0')+' dB',m+c4,c4,y);
-  lbl('COUPLANT',d.couplant,m+c4*2,c4,y);
-  lbl('MATERIAL',d.material,m+c4*3,c4,y); y+=bh;
-  lbl('THICKNESS',d.thickness,m,c4,y);
-  lbl('SUBSTRATE TEMP',(d.substrate_temp||'')+(d.temp_unit?' °'+d.temp_unit:''),m+c4,c4,y);
-  lbl('TEMP RANGE',d.thick_range,m+c4*2,c4,y);
-  lbl('BLK2 S/N',d.block2_sn,m+c4*3,c4,y); y+=bh+1;
+  // ── PROJECT DETAILS ──
+  checkPage(50);
+  secHeader('Project Details');
+  fieldRow([{l:'Customer',v:d.customer,w:0.5},{l:'Location',v:d.location,w:0.5}]);
+  fieldRow([{l:'Project',v:d.project,w:0.5},{l:'Customer P.O. / A.F.E',v:d.po_num,w:0.5}]);
+  fieldRow([{l:'Customer Representative',v:d.cust_rep,w:0.5},{l:'Part(s) Examined',v:d.parts,w:0.5}]);
+  if (d.weather_conditions) {
+    fieldRow([{l:'Site Weather Conditions',v:d.weather_conditions,w:1}]);
+  }
 
-  // PROBE TABLE
+  // ── EXAM DETAILS ──
+  checkPage(50);
+  secHeader('Examination Details');
+  fieldRow([{l:'Detector Make',v:d.det_make,w:0.25},{l:'Model',v:d.det_model,w:0.25},{l:'Serial No.',v:d.det_serial,w:0.25},{l:'Cal. Due Date',v:d.det_cal,w:0.25}]);
+  fieldRow([{l:'Cable Type',v:d.cable_type,w:0.25},{l:'Cable Length',v:(d.cable_len?d.cable_len+' ft':''),w:0.25},{l:'Surface Condition',v:d.surface_cond,w:0.25},{l:'Scan Method',v:d.scan_method,w:0.25}]);
+  fieldRow([{l:'Cal Block 1',v:(d.block1_type?d.block1_type+' — S/N: '+(d.block1_sn||''):''),w:0.25},{l:'Cal Block 2',v:(d.block2_type?d.block2_type+' — S/N: '+(d.block2_sn||''):''),w:0.25},{l:'Couplant',v:d.couplant,w:0.25},{l:'Transfer Value',v:(d.transfer_val||'0')+' dB',w:0.25}]);
+  fieldRow([{l:'Material',v:d.material,w:0.25},{l:'Thickness',v:d.thickness,w:0.25},{l:'Substrate Temp.',v:(d.substrate_temp||'')+(d.temp_unit?' °'+d.temp_unit:''),w:0.25},{l:'Temp. Range',v:d.thick_range,w:0.25}]);
+
+  // ── PROBE TABLE ──
   checkPage(30);
-  doc.setFillColor(navyMid[0],navyMid[1],navyMid[2]);
-  doc.rect(m,y,pw,5,'F');
+  secHeader('Probe / Wedge Details');
+  var phdrs = ['Angle','Wave','Type','Freq.','Size','Manufacturer','S/N','Range','Ref dB','Scan dB','Total dB'];
+  var pcw = pw/11;
+  // Header row
+  doc.setFillColor(sectionBg[0],sectionBg[1],sectionBg[2]);
+  doc.rect(m, y, pw, 6, 'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(6); doc.setFont('helvetica','bold');
-  var phdrs=['ANGLE','WAVE','TYPE','FREQ.','SIZE','MANUFACT.','S/N','RANGE','REF dB','SCAN dB','TOTAL dB'];
-  var pcws=[0.07,0.07,0.07,0.08,0.08,0.13,0.10,0.08,0.08,0.08,0.08];
-  var px=m;
-  phdrs.forEach(function(h,i){doc.text(h,px+pw*pcws[i]/2,y+3.5,{align:'center'});px+=pw*pcws[i];});
-  doc.setTextColor(0,0,0); y+=5;
-  (d.probes||[]).forEach(function(p,ri){
-    checkPage(6);
-    doc.setFillColor(ri%2===0?fieldBg[0]:255,ri%2===0?fieldBg[1]:255,ri%2===0?fieldBg[2]:255);
-    doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-    doc.setLineWidth(0.15); doc.rect(m,y,pw,5.5,'FD');
-    var vals=[p.angle,p.wave,p.type,p.freq,p.size,p.mfr,p.sn,p.range,p.ref_db,p.scan_db,p.total_db];
-    var px2=m; doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-    vals.forEach(function(v,i){doc.text(String(v||''),px2+pw*pcws[i]/2,y+3.8,{align:'center'});px2+=pw*pcws[i];});
-    y+=5.5;
+  phdrs.forEach(function(h,i){
+    doc.text(h.toUpperCase(), m+pcw*i+pcw/2, y+4, {align:'center'});
   });
-  y+=2;
+  y += 6;
+  // Data rows
+  (d.probes||[]).forEach(function(p,ri){
+    checkPage(7);
+    if(ri%2===0){
+      doc.setFillColor(fieldBg[0],fieldBg[1],fieldBg[2]);
+    } else {
+      doc.setFillColor(255,255,255);
+    }
+    doc.rect(m, y, pw, 6, 'F');
+    doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
+    doc.setLineWidth(0.15);
+    doc.rect(m, y, pw, 6);
+    doc.setTextColor(textDark[0],textDark[1],textDark[2]);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    var vals=[p.angle,p.wave,p.type,p.freq,p.size,p.mfr,p.sn,p.range,p.ref_db,p.scan_db,p.total_db];
+    vals.forEach(function(v,i){
+      doc.text(String(v||''), m+pcw*i+pcw/2, y+4, {align:'center'});
+    });
+    y += 6;
+  });
+  y += 3;
 
-  // JOB SCOPE
-  checkPage(22);
-  secBar('Job Scope');
-  var scopeLines=doc.splitTextToSize(d.job_scope||'',pw-4);
-  var scopeH=Math.max(16,scopeLines.length*4+4);
-  doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-  doc.setLineWidth(0.2); doc.rect(m,y,pw,scopeH);
-  doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-  doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-  doc.text(scopeLines,m+2,y+5); y+=scopeH+2;
+  // ── JOB SCOPE ──
+  checkPage(25);
+  secHeader('Job Scope');
+  var scopeLines = doc.splitTextToSize(d.job_scope||'', pw-4);
+  var scopeH = Math.max(14, scopeLines.length * 4 + 6);
+  textBox('', d.job_scope, m, pw, scopeH);
+  y += scopeH + 2;
 
-  // RESULTS + PHOTO
-  checkPage(60);
-  var hasPhoto=d.photo&&d.photo.length>100;
-  var resW=pw/2; var photoW=pw/2;
-  doc.setFillColor(navyMid[0],navyMid[1],navyMid[2]);
-  doc.rect(m,y,resW,5.5,'F'); doc.rect(m+resW,y,photoW,5.5,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','bold');
-  doc.text('RESULTS',m+resW/2,y+3.8,{align:'center'});
-  doc.text('PHOTO',m+resW+photoW/2,y+3.8,{align:'center'});
-  doc.setTextColor(0,0,0); y+=5.5;
-  var resLines=doc.splitTextToSize(d.exam_results||'',resW-4);
-  var resH=Math.max(55,resLines.length*4+6);
-  doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
+  // ── RESULTS + PHOTO ──
+  checkPage(35);
+  secHeader('Examination Results');
+  var resW = d.photo ? pw * 0.60 : pw;
+  var photoW = pw * 0.38;
+  var resLines = doc.splitTextToSize(d.exam_results||'', resW-4);
+  var resH = Math.max(55, resLines.length * 4 + 6);
+  if (d.drawing_ref) resH += 5;
+
+  // Results box
+  doc.setFillColor(fieldBg[0],fieldBg[1],fieldBg[2]);
+  doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
   doc.setLineWidth(0.2);
-  doc.rect(m,y,resW,resH); doc.rect(m+resW,y,photoW,resH);
+  doc.roundedRect(m, y, resW-1, resH, 1, 1, 'FD');
+  doc.setFontSize(6); doc.setFont('helvetica','bold');
+  doc.setTextColor(textMid[0],textMid[1],textMid[2]);
+  doc.text('EXAMINATION RESULTS', m+2, y+3.5);
   doc.setFontSize(7.5); doc.setFont('helvetica','normal');
   doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-  doc.text(resLines,m+2,y+5);
-  if(d.drawing_ref){
+  doc.text(resLines, m+2, y+8);
+  if (d.drawing_ref) {
     doc.setFontSize(7); doc.setFont('helvetica','italic');
     doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-    doc.text('Drawing: '+d.drawing_ref,m+2,y+resH-2);
+    doc.text('Drawing: '+d.drawing_ref, m+2, y+resH-3);
   }
-  if(hasPhoto){
-    try{
-      var imgType=d.photo.indexOf('data:image/png')>-1?'PNG':'JPEG';
-      doc.addImage(d.photo,imgType,m+resW+1,y+1,photoW-2,resH-2,undefined,'FAST');
-    }catch(e){
-      doc.setFontSize(7); doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-      doc.text('[Photo]',m+resW+photoW/2,y+resH/2,{align:'center'});
-    }
-  }
-  if(d.photo_caption){
-    doc.setFontSize(6.5); doc.setFont('helvetica','italic');
-    doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-    doc.text(d.photo_caption,m+resW+2,y+resH+3);
-  }
-  y+=resH+3;
 
-  // SIGNATURES
-  checkPage(35);
-  secBar('Signatures');
-  var sigW=pw/3-1; var sigH=22;
-  var sigs=[
-    {lbl:'Client Representative',name:d.client_rep_name,level:'',reg:'',img:d.sig_client},
-    {lbl:'Technician 1',name:d.tech1_name,level:'CGSB '+(d.tech1_level||''),reg:'Reg: '+(d.tech1_reg||''),img:d.sig_tech1},
-    {lbl:'Technician 2',name:d.tech2_name,level:'CGSB '+(d.tech2_level||''),reg:'Reg: '+(d.tech2_reg||''),img:d.sig_tech2}
-  ];
-  sigs.forEach(function(s,i){
-    var sx=m+i*(sigW+1.5);
+  // Photo box
+  if (d.photo) {
+    var px = m + resW + 1;
     doc.setFillColor(fieldBg[0],fieldBg[1],fieldBg[2]);
-    doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
-    doc.setLineWidth(0.2); doc.rect(sx,y,sigW,sigH,'FD');
+    doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
+    doc.roundedRect(px, y, photoW, resH, 1, 1, 'FD');
     doc.setFontSize(6); doc.setFont('helvetica','bold');
     doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-    var lblLine=s.lbl+(s.level&&s.level!=='CGSB '?'   '+s.level:'')+(s.reg&&s.reg!=='Reg: '?'   '+s.reg:'');
-    doc.text(lblLine,sx+2,y+3.5);
+    doc.text('PHOTO', px+2, y+3.5);
+    try {
+      var imgType = d.photo.indexOf('data:image/png') > -1 ? 'PNG' : 'JPEG';
+      // Use compression level 'FAST' for better compatibility
+      // Calculate proportional height
+      var imgH = resH - 10;
+      doc.addImage(d.photo, imgType, px+1, y+4, photoW-2, imgH, undefined, 'FAST');
+    } catch(e) {
+      console.error('Photo embed error:', e);
+      doc.setFontSize(7); doc.setFont('helvetica','normal');
+      doc.setTextColor(136,153,187);
+      doc.text('[Photo - embed failed]', px+photoW/2, y+resH/2, {align:'center'});
+    }
+    if (d.photo_caption) {
+      doc.setFontSize(6.5); doc.setFont('helvetica','italic');
+      doc.setTextColor(textMid[0],textMid[1],textMid[2]);
+      doc.text(d.photo_caption, px+2, y+resH-2);
+    }
+  }
+  y += resH + 3;
+
+  // ── SIGNATURES ──
+  checkPage(30);
+  secHeader('Signatures');
+  var sigW = pw/3 - 2;
+  var sigH = 22;
+  var sigs = [
+    {lbl:'Client Representative', name:d.client_rep_name, level:'', reg:'', img:d.sig_client},
+    {lbl:'Technician 1', name:d.tech1_name, level:'CGSB '+d.tech1_level, reg:'Reg: '+d.tech1_reg, img:d.sig_tech1},
+    {lbl:'Technician 2', name:d.tech2_name, level:'CGSB '+d.tech2_level, reg:'Reg: '+d.tech2_reg, img:d.sig_tech2}
+  ];
+  sigs.forEach(function(s, i) {
+    var sx = m + i*(sigW+2);
+    doc.setFillColor(fieldBg[0],fieldBg[1],fieldBg[2]);
+    doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(sx, y, sigW, sigH, 1, 1, 'FD');
+    // Label
+    doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.setTextColor(textMid[0],textMid[1],textMid[2]);
+    var lblLine = s.lbl + (s.level ? '   '+s.level : '') + (s.reg && s.reg !== 'Reg: ' ? '   '+s.reg : '');
+    doc.text(lblLine, sx+2, y+3.5);
+    // Name
     doc.setFontSize(8); doc.setFont('helvetica','bold');
     doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-    doc.text(s.name||'',sx+2,y+8.5);
-    var isBlank=!s.img||s.img.length<1000;
-    if(!isBlank){try{doc.addImage(s.img,'PNG',sx+2,y+10,sigW-4,9);}catch(e){isBlank=true;}}
-    if(isBlank){
-      doc.setDrawColor(150,150,150); doc.setLineWidth(0.3);
-      doc.line(sx+2,y+19,sx+sigW-2,y+19);
+    doc.text(s.name||'', sx+2, y+8.5);
+    // Signature - embed if drawn, line if not
+    var isBlank = !s.img || s.img.length < 1000;
+    if (!isBlank) {
+      try {
+        doc.addImage(s.img, 'PNG', sx+2, y+10, sigW-4, 9);
+      } catch(e) {
+        isBlank = true;
+      }
+    }
+    if (isBlank) {
+      doc.setDrawColor(textDark[0],textDark[1],textDark[2]);
+      doc.setLineWidth(0.3);
+      doc.line(sx+2, y+18, sx+sigW-2, y+18);
       doc.setFontSize(6); doc.setFont('helvetica','normal');
       doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-      doc.text('Signature',sx+2,y+21.5);
+      doc.text('Signature', sx+2, y+20.5);
     }
   });
-  y+=sigH+3;
+  y += sigH + 3;
 
-  // DISCLAIMER
+  // ── DISCLAIMER ──
   checkPage(12);
-  doc.setFillColor(240,244,252);
-  doc.setDrawColor(borderCol[0],borderCol[1],borderCol[2]);
+  doc.setFillColor(240,244,255);
+  doc.setDrawColor(fieldBorder[0],fieldBorder[1],fieldBorder[2]);
   doc.setLineWidth(0.2);
-  var disc='Examination results contained in this report are an interpretation of the inspection completed by Sound Solutions personnel, not a guarantee. Sound Solutions shall not assume any responsibility for decisions made or actions taken by the owner/operator as a result of the data provided in this examination.';
-  var discLines=doc.splitTextToSize(disc,pw-4);
-  var discH=discLines.length*3.5+5;
-  doc.rect(m,y,pw,discH,'FD');
+  var disc = 'Examination results contained in this report are an interpretation of the inspection completed by Sound Solutions personnel, not a guarantee. Sound Solutions shall not assume any responsibility for decisions made or actions taken by the owner/operator as a result of the data provided in this examination.';
+  var discLines = doc.splitTextToSize(disc, pw-6);
+  var discH = discLines.length * 3.5 + 5;
+  doc.roundedRect(m, y, pw, discH, 1, 1, 'FD');
   doc.setFontSize(6.5); doc.setFont('helvetica','italic');
   doc.setTextColor(textMid[0],textMid[1],textMid[2]);
-  doc.text(discLines,m+2,y+4);
+  doc.text(discLines, m+3, y+4);
+
   return doc;
 }
 
