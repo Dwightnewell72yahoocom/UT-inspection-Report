@@ -1779,58 +1779,32 @@ function showShareQR() {
   // Remap radio fields
   Object.keys(d).forEach(function(k){ if(k.indexOf('r_')===0) d[k.slice(2)]=d[k]; });
 
-  // Build compact data payload - text fields only, no photos
+  // Build MINIMAL payload - only essential fields to keep QR small
   var payload = {
-    _app: 'SS-UT-Report',
-    _v: '1.0',
-    job_num: d.job_num||'',
-    insp_date: d.insp_date||'',
-    customer: d.customer||'',
-    location: d.location||'',
-    project: d.project||'',
-    po_num: d.po_num||'',
-    code: d.code||'',
-    cust_rep: d.cust_rep||'',
-    parts: d.parts||'',
-    procedure: d.procedure||'',
-    revision: d.revision||'',
-    det_make: d.det_make||'',
-    det_model: d.det_model||'',
-    det_serial: d.det_serial||'',
-    det_cal: d.det_cal||'',
-    cable_type: d.cable_type||'',
-    cable_len: d.cable_len||'',
-    block1_type: d.block1_type||'',
-    block1_sn: d.block1_sn||'',
-    block1_units: d.block1_units||'',
-    block2_type: d.block2_type||'',
-    block2_sn: d.block2_sn||'',
-    block2_units: d.block2_units||'',
-    surface_cond: d.surface_cond||'',
-    scan_method: d.scan_method||'',
-    couplant: d.couplant||'',
-    transfer_val: d.transfer_val||'',
-    material: d.material||'',
-    thickness: d.thickness||'',
-    substrate_temp: d.substrate_temp||'',
-    temp_unit: d.temp_unit||'',
-    thick_range: d.thick_range||'',
-    job_scope: d.job_scope||'',
-    exam_results: d.exam_results||'',
-    drawing_ref: d.drawing_ref||'',
-    tech1_name: d.tech1_name||'',
-    tech1_level: d.tech1_level||'',
-    tech1_reg: d.tech1_reg||'',
-    tech2_name: d.tech2_name||'',
-    tech2_level: d.tech2_level||'',
-    tech2_reg: d.tech2_reg||'',
-    probes: d.probes||[]
+    a: 'SS',
+    j: d.job_num||'',
+    dt: d.insp_date||'',
+    cu: d.customer||'',
+    lo: d.location||'',
+    pr: d.project||'',
+    po: d.po_num||'',
+    cr: d.cust_rep||'',
+    pa: d.parts||'',
+    sc: d.job_scope||'',
+    re: d.exam_results||'',
+    t1: d.tech1_name||'',
+    t1l: d.tech1_level||'',
+    t1r: d.tech1_reg||'',
+    t2: d.tech2_name||'',
+    t2l: d.tech2_level||'',
+    t2r: d.tech2_reg||'',
+    pb: (d.probes||[]).map(function(p){return p.angle+','+p.wave+','+p.freq+','+p.size+','+p.mfr+','+p.sn;}).join(';')
   };
 
-  // Encode as base64 and build URL
+  // Encode as base64 and build URL using hash (shorter, faster)
   var json = JSON.stringify(payload);
   var encoded = btoa(unescape(encodeURIComponent(json)));
-  var url = window.location.origin + window.location.pathname + '?load=' + encoded;
+  var url = 'https://ut-clean.vercel.app/#' + encoded;
 
   // Clear previous QR
   var qrDiv = document.getElementById('qr-code');
@@ -1863,12 +1837,12 @@ function closeShareQR() {
 // ---- LOAD FROM QR URL ----
 function checkQRLoad() {
   try {
-    var params = new URLSearchParams(window.location.search);
-    var encoded = params.get('load');
-    if (!encoded) return;
+    var hash = window.location.hash;
+    if (!hash || hash.length < 10) return;
+    var encoded = hash.slice(1);
     var json = decodeURIComponent(escape(atob(encoded)));
     var d = JSON.parse(json);
-    if (d._app !== 'SS-UT-Report') return;
+    if (d.a !== 'SS') return;
 
     // Show confirmation banner
     var banner = document.createElement('div');
@@ -1891,42 +1865,40 @@ function checkQRLoad() {
 function loadFromQRData(jsonStr) {
   try {
     var d = JSON.parse(jsonStr);
-    // Use existing loadFromFile logic by creating a fake file object
-    var textFields = ['job_num','procedure','revision','page_num','page_of',
-      'insp_date','insp_time','customer','location','project','po_num','code',
-      'cust_rep','parts','det_make','det_model','det_serial','det_cal','cable_len',
-      'block1_sn','block2_type','block2_sn','scan_method','transfer_val','couplant',
-      'material','thickness','substrate_temp','notes_extra','job_scope','exam_results',
-      'drawing_ref','photo_caption','tech1_name','tech1_reg','tech2_name','tech2_reg',
-      'client_rep_name'];
-    textFields.forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el && d[id] !== undefined) el.value = d[id];
+    // Map short field names to form fields
+    var map = {
+      'j':'job_num','dt':'insp_date','cu':'customer','lo':'location',
+      'pr':'project','po':'po_num','cr':'cust_rep','pa':'parts',
+      'sc':'job_scope','re':'exam_results',
+      't1':'tech1_name','t1r':'tech1_reg','t2':'tech2_name','t2r':'tech2_reg'
+    };
+    Object.keys(map).forEach(function(k) {
+      var el = document.getElementById(map[k]);
+      if (el && d[k] !== undefined) el.value = d[k];
     });
-    ['tech1_level','tech2_level'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el && d[id]) el.value = d[id];
-    });
-    if (d.ampm) setAP(d.ampm);
-    var radios = ['cable_type','block1_type','block1_units','block2_units',
-                  'surface_cond','temp_unit','thick_range'];
-    radios.forEach(function(name) {
-      if (d[name]) {
-        var el = document.querySelector('input[name="'+name+'"][value="'+d[name]+'"]');
-        if (el) { el.checked = true; chk(el); }
-      }
-    });
-    if (d.probes && d.probes.length) {
+    // Tech levels
+    if (d.t1l) { var el=document.getElementById('tech1_level'); if(el) el.value=d.t1l; }
+    if (d.t2l) { var el=document.getElementById('tech2_level'); if(el) el.value=d.t2l; }
+    // Probes
+    if (d.pb) {
       document.getElementById('probe-tbody').innerHTML = '';
-      d.probes.forEach(function(p) {
-        addProbeRow(p.angle);
-        var row = document.getElementById('probe-tbody').lastElementChild;
-        var ins = row.querySelectorAll('input');
-        var pf = ['wave','type','freq','size','mfr','sn','range','ref_db','scan_db','total_db'];
-        pf.forEach(function(k,i){ if(ins[i+1]) ins[i+1].value = p[k]||''; });
+      d.pb.split(';').forEach(function(ps) {
+        var parts = ps.split(',');
+        if (parts.length >= 1) {
+          addProbeRow(parts[0]);
+          var row = document.getElementById('probe-tbody').lastElementChild;
+          var ins = row.querySelectorAll('input');
+          if(ins[1]) ins[1].value = parts[1]||'';
+          if(ins[3]) ins[3].value = parts[2]||'';
+          if(ins[4]) ins[4].value = parts[3]||'';
+          if(ins[5]) ins[5].value = parts[4]||'';
+          if(ins[6]) ins[6].value = parts[5]||'';
+        }
       });
     }
     toast('Report loaded ✓');
+    // Clear hash
+    window.history.replaceState({}, document.title, window.location.pathname);
   } catch(e) {
     toast('Load failed');
     console.error(e);
