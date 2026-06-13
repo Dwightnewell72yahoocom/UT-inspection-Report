@@ -159,6 +159,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:10px 0;}
 .em-save-btn{flex:1;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;}
 .em-cancel-btn{flex:1;background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -428,6 +429,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:10px 0;}
   <div class="export-row">
     <button class="btn btn-success" onclick="saveAll()">💾 Save</button>
     <button class="btn btn-word btn-full" style="margin-top:8px" onclick="exportAndEmail()">📤 Export &amp; Email</button>
+    <button class="btn btn-primary btn-full" style="margin-top:8px;background:var(--accent2);" onclick="showShareQR()">📲 Show QR Code</button>
   </div>
 </div>
 
@@ -1253,6 +1255,7 @@ async function exportAndEmail(){
 }
 
 stampDateTime();
+checkQRLoad();
 
 // ---- EXPORT DATA FILE ----
 function exportDataFile(d, fname) {
@@ -1769,6 +1772,166 @@ function showEquipModal(type, rowIdx) {
   EQUIPMENT.flaw_detector = origDetectors;
   EQUIPMENT.cal_blocks = origBlocks;
 }
+
+// ---- QR CODE SHARING ----
+function showShareQR() {
+  var d = collect();
+  // Remap radio fields
+  Object.keys(d).forEach(function(k){ if(k.indexOf('r_')===0) d[k.slice(2)]=d[k]; });
+
+  // Build compact data payload - text fields only, no photos
+  var payload = {
+    _app: 'SS-UT-Report',
+    _v: '1.0',
+    job_num: d.job_num||'',
+    insp_date: d.insp_date||'',
+    customer: d.customer||'',
+    location: d.location||'',
+    project: d.project||'',
+    po_num: d.po_num||'',
+    code: d.code||'',
+    cust_rep: d.cust_rep||'',
+    parts: d.parts||'',
+    procedure: d.procedure||'',
+    revision: d.revision||'',
+    det_make: d.det_make||'',
+    det_model: d.det_model||'',
+    det_serial: d.det_serial||'',
+    det_cal: d.det_cal||'',
+    cable_type: d.cable_type||'',
+    cable_len: d.cable_len||'',
+    block1_type: d.block1_type||'',
+    block1_sn: d.block1_sn||'',
+    block1_units: d.block1_units||'',
+    block2_type: d.block2_type||'',
+    block2_sn: d.block2_sn||'',
+    block2_units: d.block2_units||'',
+    surface_cond: d.surface_cond||'',
+    scan_method: d.scan_method||'',
+    couplant: d.couplant||'',
+    transfer_val: d.transfer_val||'',
+    material: d.material||'',
+    thickness: d.thickness||'',
+    substrate_temp: d.substrate_temp||'',
+    temp_unit: d.temp_unit||'',
+    thick_range: d.thick_range||'',
+    job_scope: d.job_scope||'',
+    exam_results: d.exam_results||'',
+    drawing_ref: d.drawing_ref||'',
+    tech1_name: d.tech1_name||'',
+    tech1_level: d.tech1_level||'',
+    tech1_reg: d.tech1_reg||'',
+    tech2_name: d.tech2_name||'',
+    tech2_level: d.tech2_level||'',
+    tech2_reg: d.tech2_reg||'',
+    probes: d.probes||[]
+  };
+
+  // Encode as base64 and build URL
+  var json = JSON.stringify(payload);
+  var encoded = btoa(unescape(encodeURIComponent(json)));
+  var url = window.location.origin + window.location.pathname + '?load=' + encoded;
+
+  // Clear previous QR
+  var qrDiv = document.getElementById('qr-code');
+  qrDiv.innerHTML = '';
+
+  // Generate QR
+  try {
+    new QRCode(qrDiv, {
+      text: url,
+      width: 220,
+      height: 220,
+      colorDark: '#0a1f3d',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('qr-job-label').textContent =
+      'Job: ' + (d.job_num||'—') + '  |  ' + (d.customer||'—') + '  |  ' + (d.insp_date||'—');
+    document.getElementById('qr-modal').style.display = 'flex';
+  } catch(e) {
+    toast('QR generation failed — try again');
+    console.error('QR error:', e);
+  }
+}
+
+function closeShareQR() {
+  document.getElementById('qr-modal').style.display = 'none';
+  document.getElementById('qr-code').innerHTML = '';
+}
+
+// ---- LOAD FROM QR URL ----
+function checkQRLoad() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var encoded = params.get('load');
+    if (!encoded) return;
+    var json = decodeURIComponent(escape(atob(encoded)));
+    var d = JSON.parse(json);
+    if (d._app !== 'SS-UT-Report') return;
+
+    // Show confirmation banner
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1F3864;color:#fff;padding:12px 16px;z-index:900;display:flex;align-items:center;justify-content:space-between;font-size:13px;';
+    banner.innerHTML =
+      '<span>📲 Report received: <b>' + (d.job_num||'Unknown') + '</b> — ' + (d.customer||'') + '</span>' +
+      '<div style="display:flex;gap:8px;">' +
+      '<button onclick="loadFromQRData('+JSON.stringify(json).replace(/'/g,"&#39;")+');this.parentElement.parentElement.remove();" style="background:#4d9ee8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">Load</button>' +
+      '<button onclick="this.parentElement.parentElement.remove();" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;">Dismiss</button>' +
+      '</div>';
+    document.body.appendChild(banner);
+
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } catch(e) {
+    console.error('QR load error:', e);
+  }
+}
+
+function loadFromQRData(jsonStr) {
+  try {
+    var d = JSON.parse(jsonStr);
+    // Use existing loadFromFile logic by creating a fake file object
+    var textFields = ['job_num','procedure','revision','page_num','page_of',
+      'insp_date','insp_time','customer','location','project','po_num','code',
+      'cust_rep','parts','det_make','det_model','det_serial','det_cal','cable_len',
+      'block1_sn','block2_type','block2_sn','scan_method','transfer_val','couplant',
+      'material','thickness','substrate_temp','notes_extra','job_scope','exam_results',
+      'drawing_ref','photo_caption','tech1_name','tech1_reg','tech2_name','tech2_reg',
+      'client_rep_name'];
+    textFields.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && d[id] !== undefined) el.value = d[id];
+    });
+    ['tech1_level','tech2_level'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && d[id]) el.value = d[id];
+    });
+    if (d.ampm) setAP(d.ampm);
+    var radios = ['cable_type','block1_type','block1_units','block2_units',
+                  'surface_cond','temp_unit','thick_range'];
+    radios.forEach(function(name) {
+      if (d[name]) {
+        var el = document.querySelector('input[name="'+name+'"][value="'+d[name]+'"]');
+        if (el) { el.checked = true; chk(el); }
+      }
+    });
+    if (d.probes && d.probes.length) {
+      document.getElementById('probe-tbody').innerHTML = '';
+      d.probes.forEach(function(p) {
+        addProbeRow(p.angle);
+        var row = document.getElementById('probe-tbody').lastElementChild;
+        var ins = row.querySelectorAll('input');
+        var pf = ['wave','type','freq','size','mfr','sn','range','ref_db','scan_db','total_db'];
+        pf.forEach(function(k,i){ if(ins[i+1]) ins[i+1].value = p[k]||''; });
+      });
+    }
+    toast('Report loaded ✓');
+  } catch(e) {
+    toast('Load failed');
+    console.error(e);
+  }
+}
 </script>
 
 <div class="equip-modal" id="equip-modal">
@@ -1819,6 +1982,17 @@ function showEquipModal(type, rowIdx) {
       <button class="em-close" onclick="closeEquipForm()">&#x2715;</button>
     </div>
     <div class="em-form-body" id="em-form-body"></div>
+  </div>
+</div>
+
+<!-- QR CODE MODAL -->
+<div id="qr-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:800;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;text-align:center;max-width:320px;width:90%;">
+    <div style="font-size:14px;font-weight:700;color:#0a1f3d;margin-bottom:4px;">Scan to Load / View Report</div>
+    <div style="font-size:11px;color:#666;margin-bottom:16px;">Crew: opens app &amp; loads data &nbsp;|&nbsp; Client: views summary</div>
+    <div id="qr-code" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+    <div id="qr-job-label" style="font-size:12px;color:#333;font-weight:600;margin-bottom:16px;"></div>
+    <button onclick="closeShareQR()" style="background:#1F3864;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;width:100%;">Close</button>
   </div>
 </div>
 </body>
