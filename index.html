@@ -1802,9 +1802,9 @@ function showShareQR() {
   };
 
   // Encode as base64 and build URL using hash (shorter, faster)
-  var json = JSON.stringify(payload);
+  var json = JSON.stringify(payload, null, 0);
   var encoded = btoa(unescape(encodeURIComponent(json)));
-  var url = 'https://ut-clean.vercel.app/#' + encoded;
+  var url = 'https://ut-clean.vercel.app/?d=' + encoded;
 
   // Clear previous QR
   var qrDiv = document.getElementById('qr-code');
@@ -1837,9 +1837,9 @@ function closeShareQR() {
 // ---- LOAD FROM QR URL ----
 function checkQRLoad() {
   try {
-    var hash = window.location.hash;
-    if (!hash || hash.length < 10) return;
-    var encoded = hash.slice(1);
+    var params = new URLSearchParams(window.location.search);
+    var encoded = params.get('d');
+    if (!encoded || encoded.length < 10) return;
     var json = decodeURIComponent(escape(atob(encoded)));
     var d = JSON.parse(json);
     if (d.a !== 'SS') return;
